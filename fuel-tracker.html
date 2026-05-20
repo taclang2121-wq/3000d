@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- PWA / Add to Home Screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="FUEL" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0d0d0d" />
+
+  <!-- Inline Web Manifest -->
+  <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiRlVFTCBDYWxvcmllIFRyYWNrZXIiLCJzaG9ydF9uYW1lIjoiRlVFTCIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGQwZDBkIiwidGhlbWVfY29sb3IiOiIjMGQwZDBkIiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2UvcG5nO2Jhc2U2NCxpVkJPUncwS0dnb0FBQUFOU1VoRVVnQUFBSUFBQUFDQUNBWUFBQUQzZW91cUFBQUFBWE5TUjBJQXJzNGM2UUFBQUFsbFdFbG1UMXpDQUFBQUFBQUFBQUFBQUFBb0FBQUF6QUFBQU1BQUFBQ0FBQUFvQUFBQUFBQUFBQUFBQUFBQW9BQUFBekFBQUFNQUFBQUFvQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQT0iLCJzaXplcyI6IjEyOHgxMjgiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ==" />
+
+  <title>FUEL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #0d0d0d; }
+    body {
+      font-family: 'Space Mono', monospace;
+      color: #f0ede6;
+      /* Safe area insets for notch/dynamic island */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    #root { height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const GOAL = 2404;
+    const P_CAL = 4, C_CAL = 4, F_CAL = 9;
+    const MACRO_GOALS = { protein: 180, carbs: 250, fat: 80 };
+
+    const style = `
+      .app {
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 24px 16px 80px;
+        overflow-y: auto;
+        height: 100%;
+      }
+      .header { text-align: center; margin-bottom: 32px; }
+      .header h1 {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 52px; letter-spacing: 4px;
+        color: #f0ede6; line-height: 1;
+      }
+      .header .sub {
+        font-size: 11px; letter-spacing: 3px;
+        color: #666; text-transform: uppercase; margin-top: 4px;
+      }
+      .ring-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; }
+      .ring-wrap { position: relative; width: 200px; height: 200px; }
+      .ring-wrap svg { transform: rotate(-90deg); }
+      .ring-center {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+      }
+      .ring-center .cal-num {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 44px; line-height: 1; color: #f0ede6;
+      }
+      .ring-center .cal-label { font-size: 10px; letter-spacing: 2px; color: #666; text-transform: uppercase; }
+      .remaining-bar { margin-top: 12px; font-size: 11px; letter-spacing: 2px; color: #888; text-transform: uppercase; }
+      .remaining-bar span { color: #e8ff5a; }
+      .macros-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 28px; }
+      .macro-card {
+        background: #191919; border: 1px solid #2a2a2a;
+        border-radius: 12px; padding: 14px 10px; text-align: center;
+      }
+      .macro-card .macro-label { font-size: 10px; letter-spacing: 2px; color: #555; text-transform: uppercase; margin-bottom: 6px; }
+      .macro-card .macro-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; line-height: 1; margin-bottom: 4px; }
+      .macro-card .macro-goal { font-size: 10px; color: #444; }
+      .macro-bar-bg { height: 3px; background: #2a2a2a; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+      .macro-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+      .protein .macro-val { color: #ff6b6b; }
+      .protein .macro-bar-fill { background: #ff6b6b; }
+      .carbs .macro-val { color: #e8ff5a; }
+      .carbs .macro-bar-fill { background: #e8ff5a; }
+      .fat .macro-val { color: #74c0fc; }
+      .fat .macro-bar-fill { background: #74c0fc; }
+      .form-card {
+        background: #191919; border: 1px solid #2a2a2a;
+        border-radius: 16px; padding: 20px; margin-bottom: 24px;
+      }
+      .form-card h2 {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 22px; letter-spacing: 2px; margin-bottom: 16px; color: #888;
+      }
+      .inputs-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+      .input-group label { display: block; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #555; margin-bottom: 5px; }
+      .input-group input {
+        width: 100%; background: #111; border: 1px solid #2a2a2a;
+        border-radius: 8px; padding: 10px 8px; color: #f0ede6;
+        font-family: 'Space Mono', monospace; font-size: 14px;
+        text-align: center; outline: none; transition: border-color 0.2s;
+      }
+      .input-group input:focus { border-color: #e8ff5a; }
+      .add-btn {
+        width: 100%; background: #e8ff5a; color: #0d0d0d;
+        border: none; border-radius: 10px; padding: 13px;
+        font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+        letter-spacing: 3px; cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+      }
+      .add-btn:active { transform: scale(0.97); }
+      .log-section h2 {
+        font-family: 'Bebas Neue', sans-serif; font-size: 22px;
+        letter-spacing: 2px; color: #888; margin-bottom: 12px;
+        display: flex; justify-content: space-between; align-items: center;
+      }
+      .clear-btn {
+        font-family: 'Space Mono', monospace; font-size: 10px;
+        letter-spacing: 1px; background: none; border: 1px solid #2a2a2a;
+        color: #555; border-radius: 6px; padding: 4px 10px;
+        cursor: pointer; transition: border-color 0.2s, color 0.2s;
+      }
+      .clear-btn:active { border-color: #ff6b6b; color: #ff6b6b; }
+      .log-empty { text-align: center; font-size: 11px; letter-spacing: 2px; color: #333; padding: 24px 0; text-transform: uppercase; }
+      .log-entry {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 14px; background: #191919; border: 1px solid #2a2a2a;
+        border-radius: 10px; margin-bottom: 8px;
+      }
+      .log-entry .entry-time { font-size: 10px; color: #444; margin-bottom: 3px; }
+      .log-entry .entry-macros { font-size: 11px; color: #666; }
+      .log-entry .entry-cals { font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: #e8ff5a; }
+      .delete-btn { background: none; border: none; color: #333; cursor: pointer; font-size: 16px; padding: 0 0 0 10px; }
+      .over { color: #ff6b6b !important; }
+      .divider { display: flex; align-items: center; gap: 10px; margin: 10px 0 12px; }
+      .divider-line { flex: 1; height: 1px; background: #2a2a2a; }
+      .divider-text { font-size: 10px; letter-spacing: 2px; color: #444; text-transform: uppercase; }
+    `;
+
+    function App() {
+      const [entries, setEntries] = useState([]);
+      const [form, setForm] = useState({ protein: "", carbs: "", fat: "", calories: "" });
+
+      const totalProtein = entries.reduce((s, e) => s + e.protein, 0);
+      const totalCarbs = entries.reduce((s, e) => s + e.carbs, 0);
+      const totalFat = entries.reduce((s, e) => s + e.fat, 0);
+      const totalCal = entries.reduce((s, e) => {
+        return s + e.protein * P_CAL + e.carbs * C_CAL + e.fat * F_CAL + (e.directCal || 0);
+      }, 0);
+
+      const remaining = GOAL - totalCal;
+      const pct = Math.min(totalCal / GOAL, 1);
+      const isOver = totalCal > GOAL;
+      const R = 88, CIRC = 2 * Math.PI * R;
+      const dashOffset = CIRC * (1 - pct);
+
+      const handleAdd = () => {
+        const p = parseFloat(form.protein) || 0;
+        const c = parseFloat(form.carbs) || 0;
+        const f = parseFloat(form.fat) || 0;
+        const cal = parseFloat(form.calories) || 0;
+        if (p === 0 && c === 0 && f === 0 && cal === 0) return;
+        const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setEntries([{ protein: p, carbs: c, fat: f, directCal: cal, time, id: Date.now() }, ...entries]);
+        setForm({ protein: "", carbs: "", fat: "", calories: "" });
+      };
+
+      const deleteEntry = (id) => setEntries(entries.filter(e => e.id !== id));
+      const macroPct = (val, goal) => Math.min((val / goal) * 100, 100);
+
+      return (
+        <>
+          <style>{style}</style>
+          <div className="app">
+            <div className="header">
+              <h1>FUEL</h1>
+              <div className="sub">Daily Calorie Tracker</div>
+            </div>
+
+            <div className="ring-section">
+              <div className="ring-wrap">
+                <svg width="200" height="200" viewBox="0 0 200 200">
+                  <circle cx="100" cy="100" r={R} fill="none" stroke="#1e1e1e" strokeWidth="14" />
+                  <circle cx="100" cy="100" r={R} fill="none"
+                    stroke={isOver ? "#ff6b6b" : "#e8ff5a"}
+                    strokeWidth="14"
+                    strokeDasharray={CIRC}
+                    strokeDashoffset={dashOffset}
+                    strokeLinecap="round"
+                    style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s" }}
+                  />
+                </svg>
+                <div className="ring-center">
+                  <div className={`cal-num${isOver ? " over" : ""}`}>{totalCal}</div>
+                  <div className="cal-label">of {GOAL} kcal</div>
+                </div>
+              </div>
+              <div className="remaining-bar">
+                {isOver
+                  ? <><span style={{color:"#ff6b6b"}}>{Math.abs(remaining)}</span> cal over</>
+                  : <><span>{remaining}</span> cal remaining</>
+                }
+              </div>
+            </div>
+
+            <div className="macros-grid">
+              {[
+                { key: "protein", label: "Protein", val: totalProtein, goal: MACRO_GOALS.protein, cls: "protein" },
+                { key: "carbs",   label: "Carbs",   val: totalCarbs,   goal: MACRO_GOALS.carbs,   cls: "carbs"   },
+                { key: "fat",     label: "Fat",     val: totalFat,     goal: MACRO_GOALS.fat,     cls: "fat"     },
+              ].map(({ key, label, val, goal, cls }) => (
+                <div key={key} className={`macro-card ${cls}`}>
+                  <div className="macro-label">{label}</div>
+                  <div className="macro-val">{val}<span style={{fontSize:14}}>g</span></div>
+                  <div className="macro-goal">/ {goal}g</div>
+                  <div className="macro-bar-bg">
+                    <div className="macro-bar-fill" style={{ width: `${macroPct(val, goal)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="form-card">
+              <h2>ADD MACROS</h2>
+              <div className="inputs-row">
+                {[
+                  { key: "protein", label: "Protein (g)" },
+                  { key: "carbs",   label: "Carbs (g)"   },
+                  { key: "fat",     label: "Fat (g)"     },
+                ].map(({ key, label }) => (
+                  <div key={key} className="input-group">
+                    <label>{label}</label>
+                    <input
+                      type="number" min="0" placeholder="0"
+                      value={form[key]}
+                      onChange={e => setForm({ ...form, [key]: e.target.value })}
+                      onKeyDown={e => e.key === "Enter" && handleAdd()}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="divider">
+                <div className="divider-line" />
+                <span className="divider-text">or just calories</span>
+                <div className="divider-line" />
+              </div>
+              <div className="input-group" style={{ marginBottom: 12 }}>
+                <label>Calories only (kcal)</label>
+                <input
+                  type="number" min="0" placeholder="0"
+                  value={form.calories}
+                  onChange={e => setForm({ ...form, calories: e.target.value })}
+                  onKeyDown={e => e.key === "Enter" && handleAdd()}
+                  style={{ textAlign: "center", fontSize: 16 }}
+                />
+              </div>
+              <button className="add-btn" onClick={handleAdd}>+ ADD</button>
+            </div>
+
+            <div className="log-section">
+              <h2>
+                LOG
+                {entries.length > 0 && (
+                  <button className="clear-btn" onClick={() => setEntries([])}>CLEAR ALL</button>
+                )}
+              </h2>
+              {entries.length === 0
+                ? <div className="log-empty">No entries yet</div>
+                : entries.map(e => {
+                    const cal = e.protein * P_CAL + e.carbs * C_CAL + e.fat * F_CAL + (e.directCal || 0);
+                    return (
+                      <div key={e.id} className="log-entry">
+                        <div>
+                          <div className="entry-time">{e.time}</div>
+                          <div className="entry-macros">
+                            {e.directCal && !e.protein && !e.carbs && !e.fat
+                              ? "Calories only"
+                              : `P ${e.protein}g · C ${e.carbs}g · F ${e.fat}g`}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <div className="entry-cals">{cal}</div>
+                          <button className="delete-btn" onClick={() => deleteEntry(e.id)}>×</button>
+                        </div>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
