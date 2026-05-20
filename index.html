@@ -141,13 +141,22 @@ function saveAll(d){localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}
 function dayCalories(entries=[]){return entries.reduce((s,e)=>s+e.p*P_CAL+e.c*C_CAL+e.f*F_CAL+(e.directCal||0),0);}
 
 function MiniRing({calories,size=38}){
-  const r=(size-6)/2,circ=2*Math.PI*r,pct=Math.min(calories/GOAL,1),over=calories>GOAL;
+  const r=(size-6)/2,circ=2*Math.PI*r,over=calories>GOAL;
+  const pct=Math.min(calories/GOAL,1);
+  const overflowPct=Math.min((calories-GOAL)/GOAL,1);
   return(
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{transform:"rotate(-90deg)"}}>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2a2a2a" strokeWidth="3"/>
-      {calories>0&&<circle cx={size/2} cy={size/2} r={r} fill="none"
-        stroke={over?"#ff6b6b":"#e8ff5a"} strokeWidth="3"
-        strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round"/>}
+      {calories>0&&!over&&(
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e8ff5a" strokeWidth="3"
+          strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round"/>
+      )}
+      {calories>0&&over&&(<>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e8ff5a" strokeWidth="3"
+          strokeDasharray={circ} strokeDashoffset={0} strokeLinecap="round"/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#ff6b6b" strokeWidth="3"
+          strokeDasharray={circ} strokeDashoffset={circ*(1-overflowPct)} strokeLinecap="round"/>
+      </>)}
     </svg>
   );
 }
@@ -180,6 +189,7 @@ const css=`
   .protein .macro-val{color:#ff6b6b;} .protein .macro-bar-fill{background:#ff6b6b;}
   .carbs .macro-val{color:#e8ff5a;}   .carbs .macro-bar-fill{background:#e8ff5a;}
   .fat .macro-val{color:#74c0fc;}     .fat .macro-bar-fill{background:#74c0fc;}
+  .over{color:#ff6b6b !important;}
 
   /* Search */
   .search-card{background:#191919;border:1px solid #2a2a2a;border-radius:16px;padding:20px;margin-bottom:16px;}
@@ -351,7 +361,7 @@ function App(){
   const totalCal=dayCalories(entries);
   const remaining=GOAL-totalCal;
   const isOver=totalCal>GOAL;
-  const R=88,CIRC=2*Math.PI*R,pct=Math.min(totalCal/GOAL,1);
+  const pct=Math.min(totalCal/GOAL,1);
 
   const addEntry=(entry)=>{
     const time=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
@@ -420,11 +430,22 @@ function App(){
             <div className="ring-section">
               <div className="ring-wrap">
                 <svg width="200" height="200" viewBox="0 0 200 200">
-                  <circle cx="100" cy="100" r={R} fill="none" stroke="#1e1e1e" strokeWidth="14"/>
-                  <circle cx="100" cy="100" r={R} fill="none"
-                    stroke={isOver?"#ff6b6b":"#e8ff5a"} strokeWidth="14"
-                    strokeDasharray={CIRC} strokeDashoffset={CIRC*(1-pct)} strokeLinecap="round"
-                    style={{transition:"stroke-dashoffset 0.5s ease,stroke 0.3s"}}/>
+                  <circle cx="100" cy="100" r={88} fill="none" stroke="#1e1e1e" strokeWidth="14"/>
+                  {isOver ? (<>
+                    {/* Full yellow ring */}
+                    <circle cx="100" cy="100" r={88} fill="none" stroke="#e8ff5a" strokeWidth="14"
+                      strokeDasharray={2*Math.PI*88} strokeDashoffset={0} strokeLinecap="round"/>
+                    {/* Red overflow arc on top */}
+                    <circle cx="100" cy="100" r={88} fill="none" stroke="#ff6b6b" strokeWidth="14"
+                      strokeDasharray={2*Math.PI*88}
+                      strokeDashoffset={2*Math.PI*88*(1-Math.min((totalCal-GOAL)/GOAL,1))}
+                      strokeLinecap="round"
+                      style={{transition:"stroke-dashoffset 0.5s ease"}}/>
+                  </>) : (
+                    <circle cx="100" cy="100" r={88} fill="none" stroke="#e8ff5a" strokeWidth="14"
+                      strokeDasharray={2*Math.PI*88} strokeDashoffset={2*Math.PI*88*(1-pct)} strokeLinecap="round"
+                      style={{transition:"stroke-dashoffset 0.5s ease"}}/>
+                  )}
                 </svg>
                 <div className="ring-center">
                   <div className={`cal-num${isOver?" over":""}`}>{totalCal}</div>
@@ -484,6 +505,18 @@ function App(){
 
             <div className="form-card">
               <h2>ADD MANUALLY</h2>
+              <div className="input-group" style={{marginBottom:12}}>
+                <label>Calories (kcal)</label>
+                <input type="number" min="0" placeholder="0" value={form.calories}
+                  onChange={e=>setForm({...form,calories:e.target.value})}
+                  onKeyDown={e=>e.key==="Enter"&&handleManualAdd()}
+                  style={{textAlign:"center",fontSize:16}}/>
+              </div>
+              <div className="divider">
+                <div className="divider-line"/>
+                <span className="divider-text">or enter macros</span>
+                <div className="divider-line"/>
+              </div>
               <div className="inputs-row">
                 {[{key:"protein",label:"Protein (g)"},{key:"carbs",label:"Carbs (g)"},{key:"fat",label:"Fat (g)"}].map(({key,label})=>(
                   <div key={key} className="input-group">
@@ -494,26 +527,14 @@ function App(){
                   </div>
                 ))}
               </div>
-              <div className="divider">
-                <div className="divider-line"/>
-                <span className="divider-text">or just calories</span>
-                <div className="divider-line"/>
-              </div>
-              <div className="input-group" style={{marginBottom:12}}>
-                <label>Calories only (kcal)</label>
-                <input type="number" min="0" placeholder="0" value={form.calories}
-                  onChange={e=>setForm({...form,calories:e.target.value})}
-                  onKeyDown={e=>e.key==="Enter"&&handleManualAdd()}
-                  style={{textAlign:"center",fontSize:16}}/>
-              </div>
               <button className="add-btn" onClick={handleManualAdd}>+ ADD</button>
             </div>
 
             <div className="quick-btns">
-              <button className="quick-btn" onClick={()=>addEntry({name:"Beer 🍺",p:1,c:11,f:0,directCal:100})}>
+              <button className="quick-btn" onClick={()=>addEntry({name:"Beer 🍺",p:0,c:0,f:0,directCal:110})}>
                 <div className="quick-btn-emoji">🍺</div>
                 <div className="quick-btn-label">BEER</div>
-                <div className="quick-btn-cal">110 cal · 11g carbs</div>
+                <div className="quick-btn-cal">110 cal</div>
               </button>
               <button className="quick-btn" onClick={()=>addEntry({name:"Vodka Shot 🥃",p:0,c:0,f:0,directCal:97})}>
                 <div className="quick-btn-emoji">🥃</div>
@@ -586,10 +607,18 @@ function App(){
                     <div className="cal-detail-ring">
                       <svg width="120" height="120" viewBox="0 0 120 120" style={{transform:"rotate(-90deg)",flexShrink:0}}>
                         <circle cx="60" cy="60" r={selR} fill="none" stroke="#1e1e1e" strokeWidth="10"/>
-                        <circle cx="60" cy="60" r={selR} fill="none"
-                          stroke={selOver?"#ff6b6b":"#e8ff5a"} strokeWidth="10"
-                          strokeDasharray={selCirc} strokeDashoffset={selCirc*(1-Math.min(selCal/GOAL,1))}
-                          strokeLinecap="round"/>
+                        {!selOver&&(
+                          <circle cx="60" cy="60" r={selR} fill="none" stroke="#e8ff5a" strokeWidth="10"
+                            strokeDasharray={selCirc} strokeDashoffset={selCirc*(1-Math.min(selCal/GOAL,1))}
+                            strokeLinecap="round"/>
+                        )}
+                        {selOver&&(<>
+                          <circle cx="60" cy="60" r={selR} fill="none" stroke="#e8ff5a" strokeWidth="10"
+                            strokeDasharray={selCirc} strokeDashoffset={0} strokeLinecap="round"/>
+                          <circle cx="60" cy="60" r={selR} fill="none" stroke="#ff6b6b" strokeWidth="10"
+                            strokeDasharray={selCirc} strokeDashoffset={selCirc*(1-Math.min((selCal-GOAL)/GOAL,1))}
+                            strokeLinecap="round"/>
+                        </>)}
                       </svg>
                       <div>
                         <div className="cal-detail-cal" style={{color:selOver?"#ff6b6b":"#e8ff5a"}}>{selCal}</div>
